@@ -1,0 +1,115 @@
+services:
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    build:
+      context: .
+      args:
+        OPENCLAW_INSTALL_BROWSER: "1"
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      - HOME=/home/node
+      - NODE_ENV=production
+      - TERM=xterm-256color
+      - OPENCLAW_DISABLE_BONJOUR=1
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    volumes:
+      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - openclaw-browser-cache:/ms-playwright
+    ports:
+      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+      - "10.66.66.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+    shm_size: '2gb'
+    user: "1000:1000"
+    group_add:
+      - "987"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+          pids: 512
+    command: >
+      node dist/index.js gateway
+      --bind lan
+      --port ${OPENCLAW_GATEWAY_PORT:-18789}
+      --allow-unconfigured
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    init: true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    volumes:
+      - ./searxng:/etc/searxng
+    ports:
+      - "127.0.0.1:8888:8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  personal-hooks:
+    build: /opt/openclaw/personal-hooks
+    env_file:
+      - /opt/openclaw/secrets/hooks.env
+    ports:
+      - "127.0.0.1:7777:7777"
+      - "10.66.66.1:7777:7777"
+    volumes:
+      - /home/deploy/.openclaw/workspace:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /opt/scripts:/opt/scripts:ro
+      - /opt/openclaw/scripts/test-browser.sh:/opt/openclaw/scripts/test-browser.sh:ro
+      - /opt/openclaw/Dockerfile.sandbox:/opt/openclaw/Dockerfile.sandbox:ro
+      - /opt/openclaw/docker-compose.prod.yml:/opt/openclaw/docker-compose.prod.yml:ro
+      - /backups:/backups
+      - ./data/mac-tasks:/data/mac-tasks
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:7777/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+
+volumes:
+  openclaw-browser-cache:

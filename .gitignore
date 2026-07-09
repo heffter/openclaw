@@ -269,3 +269,10 @@ extensions/diffs-language-pack/assets/viewer-runtime.js
 /.opengrep-out/
 /.crabbox-artifacts
 .comux*
+
+# Local deployment (secrets, hooks, utilities)
+/secrets/
+*.env
+/secrets/hooks.env
+personal-hooks/
+git-pull.sh
