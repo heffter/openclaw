@@ -241,3 +241,10 @@ extensions/discord/assets/embedded-app-sdk.mjs
 
 # Pinned Swift lint/format tools installed by scripts/install-swift-tools.sh
 .build/
+
+# Local deployment (secrets, hooks, utilities)
+/secrets/
+*.env
+/secrets/hooks.env
+personal-hooks/
+git-pull.sh
